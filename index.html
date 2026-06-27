@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>OneDesk — Panel de Entrenador</title>
+<meta name="description" content="Clientes, sesiones, pagos y nutrición en un solo lugar. Sin perder nada." />
+<link rel="manifest" href="./manifest.json" />
+<meta name="theme-color" content="#161310" />
+<link rel="icon" href="./icon-192.png" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
+
+<style>
+/* ============ DESIGN TOKENS ============
+   Color:
+   --ink-950: #161310   (background, near-black warm carbon)
+   --ink-900: #1E1A16   (surface)
+   --ink-800: #2A2420   (surface raised / cards)
+   --ink-700: #3A332C   (borders, dividers)
+   --paper:   #F4EDE4   (primary text, warm off-white)
+   --paper-dim: #B7AC9C (secondary text)
+   --copper:  #C0683B   (signature accent — energy/heat, not generic fitness-green)
+   --copper-dim: #8C4B2C
+   --moss:    #6B8F5C   (success / paid / done — desaturated, not neon)
+   --rust:    #B23A2F   (alert / overdue)
+   Type:
+   Display: "Fraunces" (characterful serif, used sparingly for headers — feels like a
+             trainer's logbook, not a generic SaaS dashboard)
+   Body/UI: "Inter" (neutral, highly legible for dense data)
+   Mono/data: "JetBrains Mono" for numbers (amounts, dates) — gives a ledger feel
+*/
+:root{
+  --ink-950:#161310; --ink-900:#1E1A16; --ink-800:#2A2420; --ink-700:#3A332C;
+  --paper:#F4EDE4; --paper-dim:#B7AC9C;
+  --copper:#C0683B; --copper-dim:#8C4B2C;
+  --moss:#6B8F5C; --rust:#B23A2F;
+  --radius:14px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; padding:0; background:var(--ink-950); color:var(--paper);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  -webkit-font-smoothing:antialiased; height:100%;}
+body{padding-bottom:78px;}
+h1,h2,h3{font-family:'Fraunces',Georgia,serif; font-weight:600; margin:0; letter-spacing:-0.01em;}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
+button{font-family:inherit;}
+a{color:inherit;}
+::selection{background:var(--copper); color:var(--ink-950);}
+:focus-visible{outline:2px solid var(--copper); outline-offset:2px; border-radius:6px;}
+
+/* ===== App shell ===== */
+#app{max-width:520px; margin:0 auto; min-height:100vh; position:relative;}
+
+header.topbar{
+  position:sticky; top:0; z-index:20;
+  background:linear-gradient(180deg, var(--ink-950) 70%, transparent);
+  padding:22px 20px 14px; display:flex; align-items:baseline; justify-content:space-between;
+}
+header.topbar .brand{display:flex; align-items:baseline; gap:8px;}
+header.topbar .brand .dot{color:var(--copper);}
+header.topbar h1{font-size:22px;}
+header.topbar .date{color:var(--paper-dim); font-size:13px; font-family:'JetBrains Mono',monospace;}
+
+main{padding:4px 20px 28px;}
+.screen{display:none; animation:fadein .25s ease;}
+.screen.active{display:block;}
+@keyframes fadein{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
+
+/* ===== Bottom nav ===== */
+nav.tabbar{
+  position:fixed; bottom:0; left:0; right:0; z-index:30;
+  background:var(--ink-900); border-top:1px solid var(--ink-700);
+  display:flex; justify-content:center;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+nav.tabbar .row{display:flex; width:100%; max-width:520px;}
+nav.tabbar button{
+  flex:1; background:none; border:none; color:var(--paper-dim);
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:10px 4px 8px; font-size:11px; cursor:pointer;
+}
+nav.tabbar button svg{width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.7;}
+nav.tabbar button.active{color:var(--copper);}
+
+/* ===== Cards & lists ===== */
+.card{
+  background:var(--ink-900); border:1px solid var(--ink-700); border-radius:var(--radius);
+  padding:16px; margin-bottom:12px;
+}
+.card.raised{background:var(--ink-800);}
+.section-label{
+  text-transform:uppercase; letter-spacing:.08em; font-size:11px; color:var(--paper-dim);
+  margin:22px 0 10px; font-weight:600;
+}
+.section-label:first-child{margin-top:0;}
+
+.empty{
+  text-align:center; padding:36px 18px; color:var(--paper-dim);
+}
+.empty .glyph{font-size:30px; margin-bottom:10px; opacity:.7;}
+.empty p{margin:0 0 14px; font-size:14px; line-height:1.5;}
+
+/* ===== Today screen ===== */
+.today-hero{
+  background:linear-gradient(135deg, var(--ink-800), var(--ink-900));
+  border:1px solid var(--ink-700); border-radius:18px; padding:20px; margin-bottom:18px;
+  position:relative; overflow:hidden;
+}
+.today-hero::after{
+  content:""; position:absolute; right:-40px; top:-40px; width:140px; height:140px;
+  border:1px solid var(--copper-dim); border-radius:50%; opacity:.35;
+}
+.today-hero .big-stat{font-family:'Fraunces',serif; font-size:40px; line-height:1; font-weight:600;}
+.today-hero .big-stat .unit{font-size:16px; font-weight:500; color:var(--paper-dim); margin-left:6px;}
+.today-hero .sub{color:var(--paper-dim); font-size:13px; margin-top:6px;}
+
+.alert-row{
+  display:flex; align-items:flex-start; gap:10px; padding:11px 0;
+  border-bottom:1px solid var(--ink-700);
+}
+.alert-row:last-child{border-bottom:none;}
+.alert-row .badge{
+  flex-shrink:0; width:7px; height:7px; border-radius:50%; margin-top:6px;
+}
+.alert-row .badge.rust{background:var(--rust);}
+.alert-row .badge.copper{background:var(--copper);}
+.alert-row .text{flex:1; font-size:13.5px; line-height:1.45;}
+.alert-row .text b{font-weight:600;}
+.alert-row .text .meta{color:var(--paper-dim); font-size:12px; display:block; margin-top:1px;}
+
+.session-row{
+  display:flex; align-items:center; gap:12px; padding:12px 0;
+  border-bottom:1px solid var(--ink-700);
+}
+.session-row:last-child{border-bottom:none;}
+.session-row .time{
+  font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--copper);
+  width:52px; flex-shrink:0;
+}
+.session-row .info{flex:1; min-width:0;}
+.session-row .info .name{font-size:14.5px; font-weight:600;}
+.session-row .info .meta{font-size:12px; color:var(--paper-dim);}
+.session-row .check{
+  flex-shrink:0; width:30px; height:30px; border-radius:50%; border:1.5px solid var(--ink-700);
+  background:none; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  color:var(--paper-dim);
+}
+.session-row .check.done{background:var(--moss); border-color:var(--moss); color:var(--ink-950);}
+.session-row .check svg{width:15px; height:15px;}
+
+/* ===== Buttons ===== */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  background:var(--copper); color:var(--ink-950); border:none; border-radius:11px;
+  padding:13px 18px; font-size:14.5px; font-weight:600; cursor:pointer; width:100%;
+}
+.btn:active{background:var(--copper-dim);}
+.btn.ghost{background:none; border:1px solid var(--ink-700); color:var(--paper);}
+.btn.ghost:active{background:var(--ink-800);}
+.btn.danger{background:none; color:var(--rust); border:1px solid var(--rust);}
+.btn.sm{width:auto; padding:9px 14px; font-size:13px;}
+.fab{
+  position:fixed; right:20px; bottom:90px; z-index:25;
+  width:54px; height:54px; border-radius:50%; background:var(--copper); border:none;
+  display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px rgba(192,104,59,.4);
+  cursor:pointer;
+}
+.fab svg{width:24px; height:24px; stroke:var(--ink-950); stroke-width:2.2;}
+
+/* ===== Client list / detail ===== */
+.client-row{
+  display:flex; align-items:center; gap:12px; padding:13px 0;
+  border-bottom:1px solid var(--ink-700); cursor:pointer;
+}
+.client-row:last-child{border-bottom:none;}
+.avatar{
+  width:40px; height:40px; border-radius:50%; background:var(--ink-800);
+  border:1px solid var(--ink-700); display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:14px; color:var(--copper); flex-shrink:0;
+}
+.client-row .info{flex:1; min-width:0;}
+.client-row .info .name{font-size:14.5px; font-weight:600;}
+.client-row .info .meta{font-size:12px; color:var(--paper-dim);}
+.client-row .status{flex-shrink:0; font-size:11px; padding:3px 9px; border-radius:20px; font-weight:600;}
+.status.paid{background:rgba(107,143,92,.18); color:var(--moss);}
+.status.due{background:rgba(178,58,47,.18); color:var(--rust);}
+
+.search{
+  width:100%; background:var(--ink-900); border:1px solid var(--ink-700); border-radius:11px;
+  padding:12px 14px; color:var(--paper); font-size:14px; margin-bottom:16px;
+}
+.search::placeholder{color:var(--paper-dim);}
+
+/* ===== Forms / modal ===== */
+.sheet-backdrop{
+  position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:40; display:none;
+  align-items:flex-end; justify-content:center;
+}
+.sheet-backdrop.active{display:flex;}
+.sheet{
+  background:var(--ink-900); border-radius:20px 20px 0 0; padding:22px 20px calc(22px + env(safe-area-inset-bottom));
+  width:100%; max-width:520px; max-height:88vh; overflow-y:auto;
+  border-top:1px solid var(--ink-700);
+  animation:slideup .22s ease;
+}
+@keyframes slideup{from{transform:translateY(100%);} to{transform:translateY(0);}}
+.sheet .handle{width:36px; height:4px; background:var(--ink-700); border-radius:4px; margin:0 auto 16px;}
+.sheet h2{font-size:19px; margin-bottom:16px;}
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:12.5px; color:var(--paper-dim); margin-bottom:6px; font-weight:500;}
+.field input, .field select, .field textarea{
+  width:100%; background:var(--ink-800); border:1px solid var(--ink-700); border-radius:10px;
+  padding:12px 13px; color:var(--paper); font-size:15px; font-family:inherit;
+}
+.field textarea{resize:vertical; min-height:64px;}
+.field-row{display:flex; gap:10px;}
+.field-row .field{flex:1;}
+.sheet-actions{display:flex; gap:10px; margin-top:18px;}
+.sheet-actions .btn{flex:1;}
+
+/* ===== Nutrition ===== */
+.macro-bar{height:7px; background:var(--ink-800); border-radius:6px; overflow:hidden; margin-top:6px;}
+.macro-bar .fill{height:100%; background:var(--copper); border-radius:6px;}
+.recipe-card{
+  background:var(--ink-900); border:1px solid var(--ink-700); border-radius:var(--radius);
+  padding:14px; margin-bottom:10px;
+}
+.recipe-card .top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;}
+.recipe-card .top .name{font-weight:600; font-size:14.5px;}
+.recipe-card .top .kcal{font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--copper);}
+.recipe-card .ingredients{font-size:12.5px; color:var(--paper-dim); line-height:1.5;}
+
+/* ===== Toast ===== */
+#toast{
+  position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--ink-800); border:1px solid var(--ink-700); color:var(--paper);
+  padding:11px 18px; border-radius:30px; font-size:13.5px; z-index:60; opacity:0;
+  transition:all .25s ease; pointer-events:none; white-space:nowrap; max-width:90vw;
+  display:flex; align-items:center; gap:8px;
+}
+#toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+#toast .dot{width:6px; height:6px; border-radius:50%; background:var(--moss); flex-shrink:0;}
+
+.swipe-del{
+  display:flex; justify-content:flex-end; gap:8px; margin-top:8px;
+}
+
+/* ===== Billing bar (módulo de suscripción) ===== */
+.billing-bar{
+  display:none; align-items:center; justify-content:space-between; gap:10px;
+  position:sticky; top:0; z-index:25;
+  padding:9px 16px; font-size:12.5px; font-weight:500;
+  max-width:520px; margin:0 auto;
+}
+.billing-bar.trial{background:var(--ink-800); color:var(--paper-dim); border-bottom:1px solid var(--ink-700);}
+.billing-bar.expired{background:var(--rust); color:var(--paper);}
+.billing-bar-cta{
+  background:var(--copper); color:var(--ink-950); border:none; border-radius:20px;
+  padding:6px 13px; font-size:12px; font-weight:600; cursor:pointer; flex-shrink:0;
+}
+.billing-bar.expired .billing-bar-cta{background:var(--ink-950); color:var(--paper);}
+
+/* ===== Auth screen ===== */
+.auth-screen{
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  padding:24px; background:var(--ink-950);
+}
+.auth-card{width:100%; max-width:380px;}
+.auth-logo{font-size:30px; text-align:center; margin-bottom:8px;}
+.auth-tagline{color:var(--paper-dim); font-size:13.5px; text-align:center; margin:0 0 28px; line-height:1.5;}
+.auth-error{color:var(--rust); font-size:13px; text-align:center; margin-top:12px; min-height:18px;}
+
+.logout-btn{
+  background:none; border:none; color:var(--paper-dim); cursor:pointer;
+  padding:6px; display:flex; align-items:center;
+}
+.logout-btn svg{width:20px; height:20px;}
+
+.niche-options{display:flex; flex-direction:column; gap:10px;}
+.niche-option{
+  display:flex; align-items:center; gap:14px;
+  background:var(--ink-900); border:1px solid var(--ink-700); border-radius:14px;
+  padding:16px; cursor:pointer; text-align:left; width:100%; color:var(--paper);
+  font-family:inherit; font-size:15px; font-weight:600;
+}
+.niche-option:active{background:var(--ink-800);}
+.niche-option .icon{font-size:24px; flex-shrink:0;}
+
+@media (min-width:540px){
+  body{padding-bottom:0;}
+  nav.tabbar{position:static; border-top:none; margin-top:30px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== PANTALLA: Autenticación (login / registro) ===== -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <h1 class="auth-logo">OneDesk</h1>
+    <p class="auth-tagline">Clientes, sesiones, pagos y nutrición. En un solo lugar, sin perder nada.</p>
+
+    <div class="field">
+      <label for="authEmail">Correo</label>
+      <input type="email" id="authEmail" placeholder="tu@correo.com" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label for="authPassword">Contraseña</label>
+      <input type="password" id="authPassword" placeholder="Mínimo 6 caracteres" autocomplete="current-password" />
+    </div>
+    <div class="field" id="authBusinessNameField" style="display:none;">
+      <label for="authBusinessName">Nombre de tu negocio (opcional)</label>
+      <input type="text" id="authBusinessName" placeholder="Ej. Entrenamiento con Carlos" />
+    </div>
+
+    <button class="btn" id="authSubmitBtn" onclick="handleAuthSubmit()">Entrar</button>
+    <button class="btn ghost" style="margin-top:10px;" onclick="toggleAuthMode()" id="authToggleBtn">
+      ¿No tienes cuenta? Regístrate
+    </button>
+    <p class="auth-error" id="authError"></p>
+  </div>
+</div>
+
+<!-- ===== PANTALLA: Selección de nicho (solo la primera vez) ===== -->
+<div id="nicheScreen" class="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <h1 class="auth-logo">¿A qué te dedicas?</h1>
+    <p class="auth-tagline">Así adaptamos las palabras que ves en la app a tu tipo de negocio.</p>
+    <div id="nicheOptions" class="niche-options"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+  <header class="topbar">
+    <div class="brand"><h1>OneDesk</h1><span class="dot">·</span><span class="date mono" id="todayDate"></span></div>
+    <div style="display:flex; align-items:center; gap:4px;">
+      <button class="logout-btn" onclick="openFeedbackSheet()" aria-label="Dar tu opinión" title="Ayúdanos a mejorar">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" fill="none"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+      </button>
+      <button class="logout-btn" onclick="handleLogout()" aria-label="Cerrar sesión" title="Cerrar sesión">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===== SCREEN: HOY ===== -->
+    <section class="screen active" id="screen-hoy">
+      <div class="today-hero">
+        <div class="big-stat" id="heroCount">0<span class="unit">sesiones hoy</span></div>
+        <div class="sub" id="heroSub">Todo despejado por ahora.</div>
+      </div>
+
+      <div id="alertsBlock"></div>
+
+      <div class="section-label">Sesiones de hoy</div>
+      <div class="card" id="todaySessionsCard">
+        <div class="empty" id="todayEmpty">
+          <div class="glyph">📅</div>
+          <p>No tienes sesiones agendadas para hoy.</p>
+          <button class="btn ghost sm" data-vocab="sessionVerb" onclick="openSessionSheet()">Agendar sesión</button>
+        </div>
+        <div id="todaySessionsList"></div>
+      </div>
+    </section>
+
+    <!-- ===== SCREEN: CLIENTES ===== -->
+    <section class="screen" id="screen-clientes">
+      <input class="search" id="clientSearch" placeholder="Buscar cliente…" oninput="renderClients()" />
+      <div id="clientsListWrap">
+        <div class="empty" id="clientsEmpty">
+          <div class="glyph">👤</div>
+          <p>Aún no tienes clientes. Agrega el primero para empezar a llevar su historial, sesiones y pagos en un solo lugar.</p>
+          <button class="btn sm" onclick="openClientSheet()">Agregar cliente</button>
+        </div>
+        <div class="card" id="clientsCard" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- ===== SCREEN: CLIENTE DETALLE ===== -->
+    <section class="screen" id="screen-cliente-detalle">
+      <button class="btn ghost sm" style="width:auto; margin-bottom:16px;" onclick="goTo('clientes')">← Clientes</button>
+      <div id="clienteDetalleBody"></div>
+    </section>
+
+    <!-- ===== SCREEN: COBROS ===== -->
+    <section class="screen" id="screen-cobros">
+      <div class="card raised">
+        <div class="section-label" style="margin-top:0;">Este mes</div>
+        <div class="today-hero" style="margin-bottom:0; padding:0; background:none; border:none;">
+          <div class="big-stat mono" id="monthTotal" style="font-family:'JetBrains Mono',monospace; font-size:34px;">$0</div>
+          <div class="sub" id="monthSub">cobrado de lo esperado</div>
+        </div>
+      </div>
+
+      <div class="section-label">Pendientes de cobro</div>
+      <div class="card" id="duePaymentsCard">
+        <div class="empty" id="dueEmpty">
+          <div class="glyph">✓</div>
+          <p>No hay pagos pendientes. Todo al día.</p>
+        </div>
+        <div id="duePaymentsList"></div>
+      </div>
+
+      <div class="section-label">Historial reciente</div>
+      <div class="card" id="paymentHistoryCard">
+        <div class="empty" id="historyEmpty"><p>Aún no hay pagos registrados.</p></div>
+        <div id="paymentHistoryList"></div>
+      </div>
+    </section>
+
+    <!-- ===== SCREEN: NUTRICIÓN ===== -->
+    <section class="screen" id="screen-nutricion">
+      <div class="card">
+        <p style="font-size:13px; color:var(--paper-dim); line-height:1.5; margin:0 0 4px;">
+          Plantillas de comidas reutilizables. Asígnalas a cualquier cliente desde su ficha — sin crear un plan desde cero cada vez.
+        </p>
+      </div>
+      <div class="section-label">Tus plantillas</div>
+      <div id="recipesWrap">
+        <div class="empty" id="recipesEmpty">
+          <div class="glyph">🥗</div>
+          <p>Crea tu primera plantilla de comida: nombre, calorías e ingredientes. Luego la asignas a quien quieras.</p>
+          <button class="btn sm" onclick="openRecipeSheet()">Crear plantilla</button>
+        </div>
+        <div id="recipesList"></div>
+      </div>
+    </section>
+  </main>
+
+  <button class="fab" id="fabBtn" onclick="handleFab()" aria-label="Agregar">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+
+  <nav class="tabbar">
+    <div class="row">
+      <button class="active" data-tab="hoy" onclick="goTo('hoy')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+        Hoy
+      </button>
+      <button data-tab="clientes" onclick="goTo('clientes')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        Clientes
+      </button>
+      <button data-tab="cobros" onclick="goTo('cobros')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5c0-1.5 1.3-2.2 3-2.2s3 .8 3 2.1c0 1.4-1.3 2-3 2.4-1.8.4-3 1-3 2.4 0 1.3 1.3 2.1 3 2.1s3-.7 3-2.1"/></svg>
+        Cobros
+      </button>
+      <button data-tab="nutricion" onclick="goTo('nutricion')">
+        <svg viewBox="0 0 24 24"><path d="M12 2c-1 3-4 4-4 8a4 4 0 008 0c0-4-3-5-4-8z"/><path d="M12 14v8"/></svg>
+        Nutrición
+      </button>
+    </div>
+  </nav>
+</div>
+
+<!-- ===== SHEET: Nueva sesión ===== -->
+<div class="sheet-backdrop" id="sheetSession" onclick="closeSheetOnBackdrop(event,'sheetSession')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2 data-vocab="sessionVerb">Agendar sesión</h2>
+    <div class="field">
+      <label for="sessClient">Cliente</label>
+      <select id="sessClient"></select>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="sessDate">Fecha</label>
+        <input type="date" id="sessDate" />
+      </div>
+      <div class="field">
+        <label for="sessTime">Hora</label>
+        <input type="time" id="sessTime" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="sessNote">Nota (opcional)</label>
+      <input type="text" id="sessNote" placeholder="Ej. Día de piernas" />
+    </div>
+    <div class="sheet-actions">
+      <button class="btn ghost" onclick="closeSheet('sheetSession')">Cancelar</button>
+      <button class="btn" onclick="saveSession()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SHEET: Nuevo cliente ===== -->
+<div class="sheet-backdrop" id="sheetClient" onclick="closeSheetOnBackdrop(event,'sheetClient')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2>Nuevo cliente</h2>
+    <div class="field">
+      <label for="cName">Nombre</label>
+      <input type="text" id="cName" placeholder="Nombre completo" />
+    </div>
+    <div class="field">
+      <label for="cPhone">Teléfono (opcional)</label>
+      <input type="tel" id="cPhone" placeholder="WhatsApp" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="cFee">Tarifa por sesión</label>
+        <input type="number" id="cFee" placeholder="0" />
+      </div>
+      <div class="field">
+        <label for="cPlan">Plan</label>
+        <select id="cPlan">
+          <option value="sesion">Por sesión</option>
+          <option value="mensual">Mensual</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="cGoal">Objetivo (opcional)</label>
+      <input type="text" id="cGoal" placeholder="Ej. Pérdida de grasa, fuerza, movilidad…" />
+    </div>
+    <div class="sheet-actions">
+      <button class="btn ghost" onclick="closeSheet('sheetClient')">Cancelar</button>
+      <button class="btn" onclick="saveClient()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SHEET: Registrar pago ===== -->
+<div class="sheet-backdrop" id="sheetPayment" onclick="closeSheetOnBackdrop(event,'sheetPayment')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2>Registrar pago</h2>
+    <div class="field">
+      <label for="payClient">Cliente</label>
+      <select id="payClient"></select>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="payAmount">Monto</label>
+        <input type="number" id="payAmount" placeholder="0" />
+      </div>
+      <div class="field">
+        <label for="payDate">Fecha</label>
+        <input type="date" id="payDate" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="payNote">Nota (opcional)</label>
+      <input type="text" id="payNote" placeholder="Ej. Mensualidad junio" />
+    </div>
+    <div class="sheet-actions">
+      <button class="btn ghost" onclick="closeSheet('sheetPayment')">Cancelar</button>
+      <button class="btn" onclick="savePayment()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SHEET: Nueva plantilla de nutrición ===== -->
+<div class="sheet-backdrop" id="sheetRecipe" onclick="closeSheetOnBackdrop(event,'sheetRecipe')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2>Nueva plantilla</h2>
+    <div class="field">
+      <label for="rName">Nombre</label>
+      <input type="text" id="rName" placeholder="Ej. Desayuno alto en proteína" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="rKcal">Calorías aprox.</label>
+        <input type="number" id="rKcal" placeholder="0" />
+      </div>
+      <div class="field">
+        <label for="rProtein">Proteína (g)</label>
+        <input type="number" id="rProtein" placeholder="0" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="rIngredients">Ingredientes</label>
+      <textarea id="rIngredients" placeholder="Un ingrediente por línea"></textarea>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn ghost" onclick="closeSheet('sheetRecipe')">Cancelar</button>
+      <button class="btn" onclick="saveRecipe()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SHEET: Asignar plantilla a cliente ===== -->
+<div class="sheet-backdrop" id="sheetAssign" onclick="closeSheetOnBackdrop(event,'sheetAssign')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2>Asignar plantilla</h2>
+    <div class="field">
+      <label for="assignRecipe">Plantilla</label>
+      <select id="assignRecipe"></select>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn ghost" onclick="closeSheet('sheetAssign')">Cancelar</button>
+      <button class="btn" onclick="confirmAssignRecipe()">Asignar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SHEET: Feedback ("ayúdanos a mejorar") ===== -->
+<div class="sheet-backdrop" id="sheetFeedback" onclick="closeSheetOnBackdrop(event,'sheetFeedback')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2>Ayúdanos a mejorar</h2>
+    <p style="font-size:13px; color:var(--paper-dim); line-height:1.5; margin:0 0 14px;">
+      ¿Qué se te hizo difícil? ¿Qué le hace falta a la app? Lo leemos todo.
+    </p>
+    <div class="field">
+      <label for="feedbackMsg">Tu opinión</label>
+      <textarea id="feedbackMsg" placeholder="Escribe aquí…" style="min-height:100px;"></textarea>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn ghost" onclick="closeSheet('sheetFeedback')">Cancelar</button>
+      <button class="btn" onclick="submitFeedback()">Enviar</button>
+    </div>
+    <button class="btn ghost sm" style="width:100%; margin-top:14px;" onclick="closeSheet('sheetFeedback'); showNicheScreen();">
+      Cambiar tipo de negocio
+    </button>
+  </div>
+</div>
+
+<div id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./data.js"></script>
+<script src="./vocab.js"></script>
+<script src="./app.js"></script>
+<script src="./billing.js"></script>
+</body>
+</html>
