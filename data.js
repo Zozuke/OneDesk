@@ -18,7 +18,7 @@
    ===================================================================== */
 
 const SUPABASE_URL = "https://crhamehpokvyakivbmbu.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNyaGFtZWhwb2t2eWFraXZibWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNTAzNDksImV4cCI6MjA5NzYyNjM0OX0.6VXg5dmCeD6YCf-vVj3BqNVM2v9XdrZzI0E-vIQIw0g";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNyaGFtZWhwb2t2eWFraXZibWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNTAzNDksImV4cCI6MjA5NzYyNjM0OX0.6VXg5dmCeD6YCf-vVj3BqNVM2v9XdrZzI0E-vIQIw0g"
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -53,6 +53,29 @@ async function getSession() {
   const { data } = await supabaseClient.auth.getSession();
   CURRENT_USER = data.session?.user ?? null;
   return data.session;
+}
+
+/* ===== Recuperar contraseña ===== */
+
+// Manda un correo con un link especial. Ese link trae un token que
+// Supabase usa para autenticar temporalmente a la persona SOLO para
+// poder cambiar su contraseña (sin necesitar la contraseña vieja).
+async function sendPasswordResetEmail(email) {
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname,
+  });
+  if (error) return { ok: false, message: traducirErrorAuth(error) };
+  return { ok: true };
+}
+
+// Se llama cuando la persona ya entró desde el link del correo y escribió
+// su contraseña nueva. En ese punto, Supabase ya la dejó "logueada"
+// temporalmente gracias al token del link, así que esto solo actualiza
+// la contraseña de esa sesión ya autenticada.
+async function updatePassword(newPassword) {
+  const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+  if (error) return { ok: false, message: traducirErrorAuth(error) };
+  return { ok: true };
 }
 
 function traducirErrorAuth(error) {
@@ -207,4 +230,4 @@ async function dbSendFeedback(message, niche) {
     .insert({ owner_id: CURRENT_USER?.id ?? null, message, niche: niche ?? null });
   if (error) { console.error(error); return false; }
   return true;
-}
+     }
