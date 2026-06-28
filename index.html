@@ -270,11 +270,24 @@ nav.tabbar button.active{color:var(--copper);}
 .auth-tagline{color:var(--paper-dim); font-size:13.5px; text-align:center; margin:0 0 28px; line-height:1.5;}
 .auth-error{color:var(--rust); font-size:13px; text-align:center; margin-top:12px; min-height:18px;}
 
+.link-btn{
+  display:block; width:100%; text-align:center; background:none; border:none;
+  color:var(--paper-dim); font-size:13px; margin-top:14px; cursor:pointer;
+  text-decoration:underline; font-family:inherit;
+}
+
 .logout-btn{
   background:none; border:none; color:var(--paper-dim); cursor:pointer;
   padding:6px; display:flex; align-items:center;
 }
 .logout-btn svg{width:20px; height:20px;}
+
+.install-btn{
+  display:flex; align-items:center; gap:6px;
+  background:var(--copper); color:var(--ink-950); border:none; border-radius:20px;
+  padding:7px 13px; font-size:13px; font-weight:600; cursor:pointer; margin-right:4px;
+}
+.install-btn svg{width:16px; height:16px;}
 
 .niche-options{display:flex; flex-direction:column; gap:10px;}
 .niche-option{
@@ -317,7 +330,47 @@ nav.tabbar button.active{color:var(--copper);}
     <button class="btn ghost" style="margin-top:10px;" onclick="toggleAuthMode()" id="authToggleBtn">
       ¿No tienes cuenta? Regístrate
     </button>
+    <button class="link-btn" id="forgotPasswordBtn" onclick="showForgotPasswordScreen()">
+      ¿Olvidaste tu contraseña?
+    </button>
     <p class="auth-error" id="authError"></p>
+  </div>
+</div>
+
+<!-- ===== PANTALLA: Recuperar contraseña (pedir correo) ===== -->
+<div id="forgotPasswordScreen" class="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <h1 class="auth-logo">Recuperar acceso</h1>
+    <p class="auth-tagline">Escribe tu correo y te mandamos un link para crear una contraseña nueva.</p>
+
+    <div class="field">
+      <label for="forgotEmail">Correo</label>
+      <input type="email" id="forgotEmail" placeholder="tu@correo.com" autocomplete="email" />
+    </div>
+
+    <button class="btn" id="forgotSubmitBtn" onclick="handleForgotPassword()">Enviar link</button>
+    <button class="btn ghost" style="margin-top:10px;" onclick="showAuthScreen()">Volver a iniciar sesión</button>
+    <p class="auth-error" id="forgotError"></p>
+  </div>
+</div>
+
+<!-- ===== PANTALLA: Crear nueva contraseña (llega aquí desde el link del correo) ===== -->
+<div id="resetPasswordScreen" class="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <h1 class="auth-logo">Nueva contraseña</h1>
+    <p class="auth-tagline">Escribe tu nueva contraseña para tu cuenta de OneDesk.</p>
+
+    <div class="field">
+      <label for="resetPassword1">Nueva contraseña</label>
+      <input type="password" id="resetPassword1" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+    </div>
+    <div class="field">
+      <label for="resetPassword2">Repite la contraseña</label>
+      <input type="password" id="resetPassword2" placeholder="Repite la contraseña" autocomplete="new-password" />
+    </div>
+
+    <button class="btn" id="resetSubmitBtn" onclick="handleResetPassword()">Guardar nueva contraseña</button>
+    <p class="auth-error" id="resetError"></p>
   </div>
 </div>
 
@@ -334,6 +387,10 @@ nav.tabbar button.active{color:var(--copper);}
   <header class="topbar">
     <div class="brand"><h1>OneDesk</h1><span class="dot">·</span><span class="date mono" id="todayDate"></span></div>
     <div style="display:flex; align-items:center; gap:4px;">
+      <button id="installBtn" class="install-btn" onclick="handleInstallClick()" style="display:none;">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M5 21h14"/></svg>
+        Instalar
+      </button>
       <button class="logout-btn" onclick="openFeedbackSheet()" aria-label="Dar tu opinión" title="Ayúdanos a mejorar">
         <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" fill="none"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
       </button>
