@@ -669,11 +669,60 @@ function renderHoy() {
   }
 }
 
+/* ===== Instalación de la PWA (botón propio, en vez de depender
+   de que la persona encuentre la opción en el menú del navegador) ===== */
+let deferredInstallPrompt = null;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  // El navegador dispara esto cuando SÍ es posible instalar (manifest +
+  // service worker válidos). Lo guardamos para usarlo cuando el usuario
+  // toque nuestro botón, en vez de mostrar el prompt automático del navegador.
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.style.display = "flex";
+});
+
+async function handleInstallClick() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  if (outcome === "accepted") showToast("¡Instalada! Ya la tienes en tu pantalla de inicio.");
+  deferredInstallPrompt = null;
+  document.getElementById("installBtn").style.display = "none";
+}
+
+window.addEventListener("appinstalled", () => {
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.style.display = "none";
+  deferredInstallPrompt = null;
+});
+
+// Si ya se está ejecutando como app instalada (standalone), nunca mostrar
+// el botón — no tiene sentido "instalar" lo que ya está instalado.
+function isRunningInstalled() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
 /* ===== Init ===== */
 async function init() {
   // Register service worker for offline support + installability.
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch((e) => console.warn("SW falló:", e));
+  }
+
+  // Si ya corre instalada, jamás mostrar el botón de instalar.
+  if (isRunningInstalled()) {
+    const btn = document.getElementById("installBtn");
+    if (btn) btn.style.display = "none";
+  }
+
+  // Si la persona llegó desde el link del correo de "recuperar contraseña",
+  // Supabase deja una pista en la URL (hash con type=recovery). En ese caso
+  // mostramos la pantalla de nueva contraseña en vez del flujo normal.
+  if (window.location.hash.includes("type=recovery") || new URLSearchParams(window.location.search).get("type") === "recovery") {
+    showResetPasswordScreen();
+    return;
   }
 
   const session = await getSession();
@@ -697,7 +746,88 @@ async function init() {
 
 function showAuthScreen() {
   document.getElementById("authScreen").style.display = "flex";
+  document.getElementById("forgotPasswordScreen").style.display = "none";
+  document.getElementById("resetPasswordScreen").style.display = "none";
   document.getElementById("app").style.display = "none";
+}
+
+/* ===== Recuperar / restablecer contraseña ===== */
+
+function showForgotPasswordScreen() {
+  document.getElementById("authScreen").style.display = "none";
+  document.getElementById("forgotPasswordScreen").style.display = "flex";
+  document.getElementById("forgotError").textContent = "";
+  document.getElementById("forgotEmail").value = document.getElementById("authEmail").value || "";
+}
+
+async function handleForgotPassword() {
+  const email = document.getElementById("forgotEmail").value.trim();
+  const errEl = document.getElementById("forgotError");
+  errEl.textContent = "";
+
+  if (!email) {
+    errEl.textContent = "Escribe tu correo.";
+    return;
+  }
+
+  const btn = document.getElementById("forgotSubmitBtn");
+  btn.disabled = true;
+  btn.textContent = "Enviando…";
+
+  const result = await sendPasswordResetEmail(email);
+
+  btn.disabled = false;
+  btn.textContent = "Enviar link";
+
+  if (!result.ok) {
+    errEl.textContent = result.message;
+    return;
+  }
+
+  showToast("Te enviamos un link a tu correo. Revisa tu bandeja (y spam).");
+  showAuthScreen();
+}
+
+function showResetPasswordScreen() {
+  document.getElementById("authScreen").style.display = "none";
+  document.getElementById("forgotPasswordScreen").style.display = "none";
+  document.getElementById("app").style.display = "none";
+  document.getElementById("resetPasswordScreen").style.display = "flex";
+}
+
+async function handleResetPassword() {
+  const p1 = document.getElementById("resetPassword1").value;
+  const p2 = document.getElementById("resetPassword2").value;
+  const errEl = document.getElementById("resetError");
+  errEl.textContent = "";
+
+  if (!p1 || p1.length < 6) {
+    errEl.textContent = "La contraseña debe tener al menos 6 caracteres.";
+    return;
+  }
+  if (p1 !== p2) {
+    errEl.textContent = "Las contraseñas no coinciden.";
+    return;
+  }
+
+  const btn = document.getElementById("resetSubmitBtn");
+  btn.disabled = true;
+  btn.textContent = "Guardando…";
+
+  const result = await updatePassword(p1);
+
+  btn.disabled = false;
+  btn.textContent = "Guardar nueva contraseña";
+
+  if (!result.ok) {
+    errEl.textContent = result.message;
+    return;
+  }
+
+  showToast("¡Contraseña actualizada! Ya puedes usar tu cuenta.");
+  // Limpia el ?type=recovery de la URL para que no se quede pegado.
+  window.history.replaceState({}, "", window.location.pathname);
+  await enterApp();
 }
 
 async function enterApp() {
