@@ -18,7 +18,7 @@
    ===================================================================== */
 
 const SUPABASE_URL = "https://crhamehpokvyakivbmbu.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_KIhTJ_A_HDLOGejS3XOpyA_kosWk7Ai";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNyaGFtZWhwb2t2eWFraXZibWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNTAzNDksImV4cCI6MjA5NzYyNjM0OX0.6VXg5dmCeD6YCf-vVj3BqNVM2v9XdrZzI0E-vIQIw0g";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
