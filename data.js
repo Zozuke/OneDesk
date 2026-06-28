@@ -17,8 +17,8 @@
    en schema.sql, no esta clave.
    ===================================================================== */
 
-const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
-const SUPABASE_ANON_KEY = "TU-ANON-KEY-AQUI";
+const SUPABASE_URL = "https://crhamehpokvyakivbmbu.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_KIhTJ_A_HDLOGejS3XOpyA_kosWk7Ai";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
