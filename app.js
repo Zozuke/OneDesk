@@ -712,9 +712,13 @@ async function init() {
   }
 
   // Si ya corre instalada, jamás mostrar el botón de instalar.
-  if (isRunningInstalled()) {
-    const btn = document.getElementById("installBtn");
-    if (btn) btn.style.display = "none";
+  if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("./sw.js")
+    .then((registration) => {
+      registration.update();
+    })
+    .catch((e) => console.warn("SW falló:", e));
   }
 
   // Si la persona llegó desde el link del correo de "recuperar contraseña",
