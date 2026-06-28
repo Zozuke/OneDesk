@@ -1,4 +1,4 @@
-const CACHE_NAME = "onedesk-v4";
+const CACHE_NAME = "onedesk-v5";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,13 +8,23 @@ const ASSETS = [
   "./vocab.js",
   "./manifest.json",
   "./icon-192.png",
-  "./icon-512.png",
-  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      // Se cachea uno por uno (no con addAll) a propósito: si un solo
+      // archivo falla, addAll cancela TODA la instalación del service
+      // worker, y sin un service worker instalado, Chrome no ofrece el
+      // botón de "Instalar app". Con esto, un fallo aislado no tumba
+      // el resto.
+      Promise.all(
+        ASSETS.map((url) =>
+          cache.add(url).catch((err) => console.warn("No se pudo cachear:", url, err))
+        )
+      )
+    )
   );
   self.skipWaiting();
 });
